@@ -1,3 +1,7 @@
+import json
+from dataclasses import asdict
+from pathlib import Path
+
 from .models import Task
 
 
@@ -27,3 +31,38 @@ class TaskManager:
 
     def list_tasks(self) -> list[Task]:
         return list(self._tasks)
+
+    def save_to_json(self, path: str | Path) -> None:
+        file_path = Path(path)
+        data = [asdict(task) for task in self._tasks]
+        file_path.write_text(
+            json.dumps(data, indent=2),
+            encoding="utf-8",
+        )
+
+    @classmethod
+    def load_from_json(cls, path: str | Path) -> "TaskManager":
+        file_path = Path(path)
+
+        try:
+            data = json.loads(file_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise ValueError(f"Invalid task file: {file_path}") from error
+
+        manager = cls()
+
+        for item in data:
+            manager._tasks.append(
+                Task(
+                    id=item["id"],
+                    title=item["title"],
+                    completed=item["completed"],
+                )
+            )
+
+        manager._next_id = max(
+            (task.id for task in manager._tasks),
+            default=0,
+        ) + 1
+
+        return manager
